@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#07090f">
+<title>DP-NILM Unified Platform</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Azeret+Mono:wght@400;500;700&display=swap');
+:root{--bg:#07090f;--bg2:#0d1220;--bg3:#131a2a;--bdr:rgba(56,189,248,0.07);--bdrH:rgba(56,189,248,0.18);
+--tx:#94a3b8;--br:#e2e8f0;--dm:#475569;--mt:#1e293b;
+--cy:#38bdf8;--gn:#4ade80;--rd:#f87171;--am:#fbbf24;--pu:#a78bfa;--pk:#f472b6;--tl:#2dd4bf;--or:#fb923c;}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--tx);
+font-family:'Azeret Mono','Courier New',monospace;touch-action:manipulation;user-select:none;font-size:11px;}
+#A{display:flex;flex-direction:column;height:100%;max-width:520px;margin:0 auto;width:100%;}
+.H{padding:6px 10px;border-bottom:1px solid var(--bdr);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;}
+.H h1{font-size:12px;font-weight:700;letter-spacing:0.05em;color:var(--cy);}
+.H .sub{font-size:6px;color:var(--dm);letter-spacing:0.12em;}
+.stats{display:flex;gap:8px;}
+.st{text-align:center}.st .v{font-size:11px;font-weight:700}.st .l{font-size:5px;color:var(--dm);letter-spacing:0.06em;}
+canvas{display:block;width:100%;cursor:pointer;}
+.tabs{display:flex;border-bottom:1px solid var(--bdr);flex-shrink:0;}
+.T{flex:1;padding:6px 0;text-align:center;font-size:7px;font-weight:600;letter-spacing:0.05em;color:var(--dm);
+cursor:pointer;border-bottom:2px solid transparent;transition:all 0.2s;}
+.T.on{color:var(--cy);border-bottom-color:var(--cy);background:rgba(56,189,248,0.03);}
+.P{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:6px 8px;}
+.C{background:var(--bg2);border:1px solid var(--bdr);border-radius:6px;margin-bottom:5px;overflow:hidden;}
+.Ch{padding:4px 8px;background:rgba(56,189,248,0.03);border-bottom:1px solid var(--bdr);font-size:7px;color:var(--cy);
+letter-spacing:0.08em;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center;}
+.Cb{padding:6px 8px;}
+.r{display:flex;justify-content:space-between;padding:1px 0;font-size:9px;}
+.r .l{color:var(--dm)}.r .v{font-weight:600}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:2px 8px;}
+.bg{display:inline-block;padding:1px 5px;border-radius:3px;font-size:6px;font-weight:600;}
+.nc{background:var(--bg3);border:1px solid var(--bdr);border-radius:5px;padding:5px 7px;margin-bottom:4px;}
+.bt{padding:5px 12px;border-radius:5px;border:none;cursor:pointer;font-family:inherit;font-size:9px;font-weight:600;transition:all 0.15s;}
+.bt:active{transform:scale(0.95);}
+canvas.sig{width:100%;height:50px;border-radius:4px;border:1px solid var(--bdr);}
+.lbl{font-size:7px;color:var(--dm);letter-spacing:0.06em;text-transform:uppercase;margin:4px 0 2px;}
+select,input{background:var(--bg);color:var(--br);border:1px solid var(--bdr);border-radius:3px;padding:4px 6px;font-family:inherit;font-size:9px;outline:none;width:100%;}
+::-webkit-scrollbar{width:2px}::-webkit-scrollbar-thumb{background:rgba(56,189,248,0.08);border-radius:1px}
+</style>
+</head>
+<body>
+<div id="A">
+<div class="H"><div><h1>DP-NILM UNIFIED</h1><div class="sub">IEC 61850 · DIFFERENTIAL PRIVACY · KEY EXCHANGE · NILM</div></div>
+<div class="stats">
+<div class="st"><div class="v" id="sN" style="color:var(--cy)">0</div><div class="l">NODES</div></div>
+<div class="st"><div class="v" id="sK" style="color:var(--gn)">0</div><div class="l">KEYS</div></div>
+<div class="st"><div class="v" id="sP" style="color:var(--pk)">0</div><div class="l">PKTS</div></div>
+<div class="st"><div class="v" id="sE" style="color:var(--pu)">ε1</div><div class="l">DP</div></div>
+</div></div>
+<canvas id="cv" style="flex:1;min-height:180px;max-height:260px"></canvas>
+<div class="tabs" id="tabs"></div>
+<div class="P" id="pan"></div>
+</div>
+<script>
+(function(){
+"use strict";
+const V={bg:"#07090f",bg2:"#0d1220",bg3:"#131a2a",bdr:"rgba(56,189,248,0.07)",
+cy:"#38bdf8",gn:"#4ade80",rd:"#f87171",am:"#fbbf24",pu:"#a78bfa",pk:"#f472b6",tl:"#2dd4bf",or:"#fb923c",
+tx:"#94a3b8",br:"#e2e8f0",dm:"#475569",mt:"#1e293b"};
+const COL=["#38bdf8","#4ade80","#f472b6","#fbbf24","#a78bfa","#fb923c","#2dd4bf","#f87171","#818cf8","#34d399"];
+const NAM=["ALPHA","BRAVO","CHARLIE","DELTA","ECHO","FOXTROT","GOLF","HOTEL","INDIA","JULIET"];
+const PROF={residential:[.35,.30,.28,.27,.28,.32,.48,.72,.78,.65,.55,.52,.50,.48,.45,.48,.55,.70,.85,.92,.88,.75,.60,.42],
+commercial:[.20,.18,.17,.17,.18,.20,.30,.55,.80,.92,.95,.93,.85,.90,.93,.95,.90,.80,.55,.35,.28,.25,.22,.20],
+industrial:[.70,.70,.72,.72,.75,.78,.85,.90,.92,.95,.95,.93,.88,.90,.92,.95,.93,.90,.85,.80,.78,.75,.72,.70]};
+const TYPES=["residential","commercial","industrial"];
+const APPS=[{n:"HVAC",c:V.cy,w:1800,d:h=>(h>10&&h<16)?.7:.15},{n:"Fridge",c:V.tl,w:120,d:()=>Math.random()>.3?.8:.1},{n:"Workstations",c:V.pu,w:750,d:h=>(h>8&&h<18)?.85:.05},{n:"Lighting",c:V.am,w:300,d:h=>(h<7||h>17)?.75:.15},{n:"Coffee",c:V.or,w:1000,d:h=>(h>7&&h<10)?Math.random()>.5?1:0:0}];
+function lp(p,h){const i=Math.floor(h)%24,f=h-Math.floor(h);return p[i]*(1-f)+p[(i+1)%24]*f;}
+function prf(s,i,j){let h=s;h=((h*31+i*7919)^(j*104729))>>>0;h=((h^(h>>>16))*2246822519)>>>0;return((h*2654435769)>>>0&0x7FFFFFFF)/0x7FFFFFFF;}
+function lapPRF(s,i,j,b){const u=prf(s,i,j)-.5;return-b*Math.sign(u)*Math.log(1-2*Math.abs(u)+1e-15);}
+function gkp(){const p=crypto.getRandomValues(new Uint32Array(1))[0];const pub=(p*2654435761)>>>0;return{priv:p,pub,fp:pub.toString(16).padStart(8,'0').toUpperCase()};}
+function dSec(a,b){return((a^b)*2246822519)>>>0;}
+function hexS(s){return(s>>>0).toString(16).padStart(8,'0').toUpperCase();}
+const rn=()=>Math.random()-.5;
+
+// ═══ STATE ═══
+let nodes=[],links=[],particles=[],secrets=[],events=[];
+let selNode=null,placing=false,nxtId=0,totPkt=0,eps=1.0,simH=9,tab="net";
+let vendors=[{id:"V-001",name:"GridAnalytics Corp",k:gkp(),purpose:"NILM"},{id:"V-002",name:"EnergyInsight Ltd",k:gkp(),purpose:"Forecasting"}];
+
+function addEv(t,c){events=[{t:t,c:c||V.cy,ts:Date.now()},...events].slice(0,40);}
+
+// ═══ NODE (IED + CRYPTO + SCADA) ═══
+function mkNode(x,y){
+  const id=nxtId++,name=NAM[id%NAM.length]+(id>=NAM.length?id:""),color=COL[id%COL.length];
+  const type=TYPES[id%TYPES.length],keys=gkp();
+  const nomP=[200,350,500,150,250,400][id%6];
+  const pf=[.92,.88,.85,.90,.87,.91][id%6];
+  const prof=PROF[type];
+  const n={id,name,color,x,y,keys,type,nomP,pf,prof,
+    secrets:{},dpEnabled:true,epsilon:eps,online:true,
+    // SCADA
+    v:11000,i:0,p:0,q:0,hz:50,thdV:2.2,thdI:5.5,brkOn:true,prot:"IDLE",opCnt:0,kwh:Math.random()*5000+1e3,loadPU:0,
+    iP51:nomP/(11*1.732)*1.3, iP50:nomP/(11*1.732)*6,
+    fault:null,gooseSt:0,svCnt:0,
+    // DP signal buffers
+    sigR:new Float32Array(160),sigN:new Float32Array(160),sigC:new Float32Array(160),sigIdx:0,
+    pulse:Math.random()*Math.PI*2};
+  nodes.push(n);
+  addEv(`+ ${name} online · ${type} ${nomP}kW · PK:${keys.fp.slice(0,6)}`,V.gn);
+  // Key exchange with all existing
+  nodes.forEach(o=>{if(o.id===id)return;
+    links.push({a:id,b:o.id,active:false,exch:true,exchP:0});
+    startKE(id,o.id);});
+  n.authenticated=true;
+  updStats();return n;
+}
+function rmNode(id){
+  const n=nodes.find(x=>x.id===id);if(!n)return;
+  addEv(`- ${n.name} removed`,V.rd);
+  links=links.filter(l=>l.a!==id&&l.b!==id);
+  secrets=secrets.filter(s=>s.a!==id&&s.b!==id);
+  nodes.forEach(x=>{delete x.secrets[id];});
+  nodes=nodes.filter(x=>x.id!==id);
+  if(selNode===id)selNode=null;updStats();
+}
+function startKE(a,b){
+  const link=links.find(l=>(l.a===a&&l.b===b)||(l.a===b&&l.b===a));if(!link)return;
+  link.exch=true;link.exchP=0;
+  spawn(a,b,"pk","PK");setTimeout(()=>spawn(b,a,"pk","PK"),300);
+  setTimeout(()=>{
+    const na=nodes.find(x=>x.id===a),nb=nodes.find(x=>x.id===b);if(!na||!nb)return;
+    const s=dSec(na.keys.priv,nb.keys.pub);
+    na.secrets[b]=s;nb.secrets[a]=s;
+    if(!secrets.find(x=>(x.a===a&&x.b===b)||(x.a===b&&x.b===a)))
+      secrets.push({a,b,secret:s,nA:na.name,nB:nb.name,fpA:na.keys.fp,fpB:nb.keys.fp});
+    link.active=true;link.exch=false;
+    addEv(`🔑 ${na.name}↔${nb.name} S=${hexS(s).slice(0,8)}`,V.gn);
+    spawn(a,b,"ok","✓");spawn(b,a,"ok","✓");updStats();
+  },1200);
+}
+
+// ═══ PARTICLES ═══
+let pid=0;
+function spawn(f,t,ty,lb){particles.push({id:pid++,f,t,ty,lb:lb||"",p:0});totPkt++;}
+function traffic(){
+  links.forEach(l=>{if(!l.active)return;
+    if(Math.random()<.015)spawn(l.a,l.b,"dp","DP");
+    if(Math.random()<.012)spawn(l.b,l.a,"dp","DP");
+    if(Math.random()<.004)spawn(l.a,l.b,"go","G");
+    if(Math.random()<.006)spawn(l.b,l.a,"sv","SV");
+    if(Math.random()<.003){spawn(l.a,l.b,"mm","MMS");setTimeout(()=>spawn(l.b,l.a,"mm","MMS"),200);}
+  });
+}
+
+// ═══ IED UPDATE ═══
+function updIEDs(dt){
+  const h=simH;
+  nodes.forEach(n=>{
+    n.loadPU=lp(n.prof,h);
+    let v=11000-n.loadPU*330+rn()*55;
+    let lP=n.nomP*n.loadPU;
+    const lS=lP/n.pf, iP=lS/(v*1.732)*1000;
+    if(n.fault){n.i=iP*n.fault.m;n.v=v*n.fault.v;
+      if(n.i>n.iP50){n.prot="TRIP";n.brkOn=false;n.opCnt++;n.gooseSt++;n.fault=null;}
+      else if(n.i>n.iP51&&n.prot==="IDLE")n.prot="PICKUP";
+    }else{n.prot="IDLE";n.v=v;n.i=n.brkOn?iP:0;}
+    n.p=n.brkOn?lP:0;n.q=n.brkOn?lP*Math.tan(Math.acos(n.pf)):0;
+    n.hz=50+Math.sin(simH*.3)*.03+rn()*.01;
+    n.thdV=1.8+(1-n.loadPU)*1.5+rn()*.2;n.thdI=4+(1-n.loadPU)*8+rn()*.5;
+    if(n.brkOn){n.kwh+=n.p*dt/3600;}
+    n.svCnt+=Math.round(4000*dt);
+    // DP signal
+    const idx=n.sigIdx%160,raw=n.p/Math.max(1,n.nomP);
+    n.sigR[idx]=raw;
+    const firstSec=Object.values(n.secrets)[0];
+    if(firstSec&&n.dpEnabled){
+      const b=1/n.epsilon,noise=lapPRF(firstSec,n.sigIdx,0,b);
+      n.sigN[idx]=raw+noise;n.sigC[idx]=raw+noise-lapPRF(firstSec,n.sigIdx,0,b);
+    }else{n.sigN[idx]=raw;n.sigC[idx]=raw;}
+    n.sigIdx++;
+  });
+}
+
+// ═══ CANVAS ═══
+const cv=document.getElementById("cv");const ctx=cv.getContext("2d");let W,H,dpr;
+function rsz(){dpr=window.devicePixelRatio||1;W=cv.clientWidth;H=cv.clientHeight;cv.width=W*dpr;cv.height=H*dpr;}
+rsz();window.addEventListener("resize",rsz);
+
+function draw(t){
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.fillStyle=V.bg;ctx.fillRect(0,0,W,H);
+  ctx.fillStyle="rgba(56,189,248,0.01)";for(let x=0;x<W;x+=20)for(let y=0;y<H;y+=20)ctx.fillRect(x,y,1,1);
+  if(!nodes.length){ctx.fillStyle=V.mt;ctx.font="bold 12px Azeret Mono";ctx.textAlign="center";ctx.textBaseline="middle";
+    ctx.fillText("TAP + ADD NODE",W/2,H/2-8);ctx.fillStyle="#334155";ctx.font="9px Azeret Mono";ctx.fillText("then tap canvas to place",W/2,H/2+10);return;}
+  // Links
+  links.forEach(l=>{const a=nodes.find(n=>n.id===l.a),b=nodes.find(n=>n.id===l.b);if(!a||!b)return;
+    if(l.exch){ctx.strokeStyle="rgba(251,191,36,0.18)";ctx.lineWidth=1.5;ctx.setLineDash([4,5]);ctx.lineDashOffset=-t*.01;
+      ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();ctx.setLineDash([]);
+      const mx=(a.x+b.x)/2,my=(a.y+b.y)/2;ctx.fillStyle=V.am;ctx.font="bold 6px Azeret Mono";ctx.textAlign="center";ctx.fillText("ECDH",mx,my-5);
+    }else if(l.active){ctx.strokeStyle="rgba(74,222,128,0.06)";ctx.lineWidth=.8;ctx.setLineDash([2,7]);ctx.lineDashOffset=-t*.006;
+      ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();ctx.setLineDash([]);}});
+  // Particles
+  particles.forEach(p=>{const f=nodes.find(n=>n.id===p.f),o=nodes.find(n=>n.id===p.t);if(!f||!o)return;
+    const x=f.x+(o.x-f.x)*p.p,y=f.y+(o.y-f.y)*p.p;
+    const cs={pk:V.am,ok:V.gn,dp:V.cy,go:V.pk,sv:V.tl,mm:V.or};const c=cs[p.ty]||V.cy;const sz=p.ty==="pk"?5:p.ty==="ok"?4:3;
+    ctx.fillStyle=c+"20";ctx.beginPath();ctx.arc(x,y,sz*3,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle=c;ctx.beginPath();ctx.arc(x,y,sz,0,Math.PI*2);ctx.fill();
+    if(p.lb){ctx.fillStyle=c;ctx.font="bold 5px Azeret Mono";ctx.textAlign="center";ctx.fillText(p.lb,x,y-sz-4);}});
+  // Nodes
+  nodes.forEach(n=>{const{x,y,name,color,id}=n;const isSel=selNode===id;const r=18;const pu=Math.sin(t*.003+n.pulse)*.3+.7;
+    const sc=Object.keys(n.secrets).length;
+    if(sc){const g=ctx.createRadialGradient(x,y,r*.3,x,y,r*2.2);g.addColorStop(0,color+"0c");g.addColorStop(1,"transparent");ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,r*2.2,0,Math.PI*2);ctx.fill();}
+    if(isSel){ctx.strokeStyle=V.am+"40";ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,y,r+7,0,Math.PI*2);ctx.stroke();}
+    ctx.save();ctx.translate(x,y);ctx.rotate(t*.0007+id);ctx.strokeStyle=color+"18";ctx.lineWidth=1;ctx.beginPath();ctx.arc(0,0,r+3,0,Math.PI*.5);ctx.stroke();ctx.restore();
+    const bg=ctx.createRadialGradient(x-2,y-2,1,x,y,r);bg.addColorStop(0,color+"28");bg.addColorStop(1,color+"06");
+    ctx.fillStyle=bg;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle=color+Math.round(pu*160).toString(16).padStart(2,"0");ctx.lineWidth=1.5;ctx.stroke();
+    ctx.fillStyle=color;ctx.font="bold 7px Azeret Mono";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(name,x,y-3);
+    ctx.fillStyle=color+"60";ctx.font="5px Azeret Mono";ctx.fillText(Math.round(n.p)+"kW",x,y+7);
+    if(sc){ctx.fillStyle=V.gn;ctx.font="5px Azeret Mono";ctx.fillText("🔑"+sc,x,y+r+7);}
+    if(n.fault){ctx.fillStyle=V.rd;ctx.font="8px serif";ctx.fillText("⚡",x-r-6,y-r+4);}
+    if(n.prot!=="IDLE"){const pc=n.prot==="TRIP"?V.rd:V.am;ctx.strokeStyle=pc;ctx.lineWidth=1.5;ctx.globalAlpha=Math.sin(t*.015)*.3+.7;ctx.beginPath();ctx.arc(x,y,r+4,0,Math.PI*2);ctx.stroke();ctx.globalAlpha=1;}
+  });
+  if(placing){ctx.fillStyle=V.cy+"30";ctx.font="bold 9px Azeret Mono";ctx.textAlign="center";ctx.fillText("TAP TO PLACE",W/2,16);}
+  // Legend
+  ctx.font="5px Azeret Mono";ctx.textAlign="left";
+  [{l:"PK",c:V.am},{l:"DP",c:V.cy},{l:"GOOSE",c:V.pk},{l:"SV",c:V.tl},{l:"MMS",c:V.or}].forEach((x,i)=>{
+    const lx=5+i*42,ly=H-5;ctx.fillStyle=x.c;ctx.beginPath();ctx.arc(lx,ly,2,0,Math.PI*2);ctx.fill();ctx.fillText(x.l,lx+4,ly+2);});
+}
+
+// ═══ MAIN LOOP ═══
+let lt=0;
+function frame(t){const dt=lt?(t-lt)/1000:.016;lt=t;simH=(simH+dt*60/3600)%24;
+  particles.forEach(p=>{p.p+=({pk:.012,ok:.018}[p.ty]||.015);});particles=particles.filter(p=>p.p<1);
+  traffic();updIEDs(dt);draw(t);requestAnimationFrame(frame);}
+requestAnimationFrame(frame);
+
+// ═══ CANVAS INTERACTION ═══
+function gp(e){const r=cv.getBoundingClientRect();const cx=e.touches?e.changedTouches[0].clientX:e.clientX;const cy2=e.touches?e.changedTouches[0].clientY:e.clientY;return{x:cx-r.left,y:cy2-r.top};}
+function hit(mx,my){for(const n of nodes)if(Math.hypot(mx-n.x,my-n.y)<22)return n;return null;}
+function onTap(e){e.preventDefault();const{x,y}=gp(e);
+  if(placing){mkNode(x,y);placing=false;ren();return;}
+  const h=hit(x,y);if(h){selNode=selNode===h.id?null:h.id;}else{selNode=null;}ren();}
+cv.addEventListener("click",onTap);cv.addEventListener("touchend",onTap);
+
+// ═══ CONTROLS ═══
+document.getElementById("A").insertAdjacentHTML("beforeend","");
+const addBtn=document.createElement("div");addBtn.style.cssText="padding:4px 8px;border-bottom:1px solid rgba(56,189,248,0.06);display:flex;gap:4px;flex-shrink:0;flex-wrap:wrap;align-items:center";
+addBtn.innerHTML=`<button class="bt" style="background:var(--cy);color:var(--bg)" id="bA">+ ADD NODE</button><button class="bt" style="background:transparent;color:var(--dm);border:1px solid var(--bdr)" id="bC">CLEAR</button><span style="font-size:7px;color:var(--dm)" id="hnt">tap node to inspect</span>`;
+document.getElementById("A").insertBefore(addBtn,document.querySelector(".tabs"));
+document.getElementById("bA").onclick=()=>{if(!nodes.length){mkNode(W/2,H/2);ren();}else{placing=true;document.getElementById("hnt").textContent="TAP CANVAS TO PLACE";}};
+document.getElementById("bC").onclick=()=>{nodes=[];links=[];particles=[];secrets=[];selNode=null;nxtId=0;totPkt=0;events=[];addEv("Cleared",V.rd);updStats();ren();};
+
+// ═══ TABS ═══
+const TABS=[["net","NETWORK"],["scada","SCADA"],["pipe","PIPELINE"],["broker","BROKER"],["nilm","NILM"]];
+const tabsEl=document.getElementById("tabs");
+TABS.forEach(([k,lb])=>{const d=document.createElement("div");d.className="T"+(k===tab?" on":"");d.textContent=lb;d.dataset.t=k;
+  d.onclick=()=>{tab=k;document.querySelectorAll(".T").forEach(x=>x.classList.remove("on"));d.classList.add("on");ren();};tabsEl.appendChild(d);});
+
+function updStats(){document.getElementById("sN").textContent=nodes.length;document.getElementById("sK").textContent=secrets.length;
+  document.getElementById("sP").textContent=totPkt;document.getElementById("sE").textContent="ε"+eps;}
+
+// ═══ RENDERERS ═══
+function ren(){
+  const el=document.getElementById("pan");
+  ({net:rNet,scada:rScada,pipe:rPipe,broker:rBroker,nilm:rNilm})[tab](el);
+}
+
+function rNet(el){
+  if(selNode!==null){const n=nodes.find(x=>x.id===selNode);if(!n){el.innerHTML="";return;}
+    const sc=Object.keys(n.secrets).length;
+    el.innerHTML=`<div class="nc" style="border-left:3px solid ${n.color}">
+      <div style="display:flex;justify-content:space-between"><span style="color:${n.color};font-weight:700;font-size:12px">${n.name}</span>
+      <div style="display:flex;gap:3px"><span class="bg" style="background:${V.gn}15;color:${V.gn};border:1px solid ${V.gn}30">${n.type}</span>
+      <button class="bt" style="background:${V.rd}15;color:${V.rd};border:1px solid ${V.rd}30;padding:2px 6px;font-size:7px" id="rm">REMOVE</button></div></div>
+      <div class="g2" style="margin-top:4px">
+        <div class="r"><span class="l">Public Key</span><span class="v" style="color:${V.cy}">0x${n.keys.fp}</span></div>
+        <div class="r"><span class="l">Secrets</span><span class="v" style="color:${V.gn}">${sc} peers</span></div>
+        <div class="r"><span class="l">Nominal</span><span class="v">${n.nomP}kW PF${n.pf}</span></div>
+        <div class="r"><span class="l">DP ε</span><span class="v" style="color:${V.pu}">${n.epsilon}</span></div>
+      </div>
+      ${sc?`<div class="lbl" style="margin-top:4px">SHARED SECRETS (S<sub>A,V</sub>)</div>${Object.entries(n.secrets).map(([pid2,sec])=>{
+        const peer=nodes.find(x=>x.id===parseInt(pid2));
+        return`<div style="font-size:8px;color:${V.dm};padding:1px 0;border-left:2px solid ${V.gn}30;padding-left:5px;margin:1px 0">↔ ${peer?peer.name:"?"}: 0x${hexS(sec)}</div>`;}).join("")}`:""}
+    </div>`;
+    document.getElementById("rm").onclick=()=>{rmNode(n.id);ren();};
+  }else{
+    el.innerHTML=nodes.length?nodes.map(n=>`<div class="nc" style="border-left:3px solid ${n.color};cursor:pointer" data-n="${n.id}">
+      <div style="display:flex;justify-content:space-between"><span style="color:${n.color};font-weight:700">${n.name}</span>
+      <div style="display:flex;gap:3px"><span class="bg" style="background:${V.gn}15;color:${V.gn};border:1px solid ${V.gn}30">🔑${Object.keys(n.secrets).length}</span>
+      <span class="bg" style="background:${V.pu}15;color:${V.pu};border:1px solid ${V.pu}30">ε${n.epsilon}</span></div></div>
+      <div style="font-size:8px;color:${V.dm}">${n.type} · ${n.nomP}kW · PK:${n.keys.fp.slice(0,8)}</div></div>`).join(""):
+      `<div style="text-align:center;padding:20px;color:${V.mt};font-size:10px">No nodes. Tap + ADD NODE.</div>`;
+    el.querySelectorAll("[data-n]").forEach(c=>{c.onclick=()=>{selNode=parseInt(c.dataset.n);ren();};});
+  }
+}
+
+function rScada(el){
+  const n=selNode!==null?nodes.find(x=>x.id===selNode):nodes[0];
+  if(!n){el.innerHTML=`<div style="text-align:center;padding:16px;color:${V.mt}">Add nodes first</div>`;return;}
+  el.innerHTML=`<div class="C"><div class="Ch"><span>${n.name} — ${n.type.toUpperCase()} SCADA</span>
+    <div style="display:flex;gap:3px"><span class="bg" style="background:${n.brkOn?V.gn:V.rd}15;color:${n.brkOn?V.gn:V.rd};border:1px solid ${n.brkOn?V.gn:V.rd}30">${n.brkOn?"CB ON":"CB OFF"}</span>
+    <span class="bg" style="background:${n.prot==="IDLE"?V.gn:V.rd}15;color:${n.prot==="IDLE"?V.gn:V.rd};border:1px solid ${n.prot==="IDLE"?V.gn:V.rd}30">${n.prot}</span></div>
+  </div><div class="Cb"><div class="g2">
+    <div class="r"><span class="l">V (L-L)</span><span class="v" style="color:${n.color}">${(n.v*1.732).toFixed(0)}V</span></div>
+    <div class="r"><span class="l">I</span><span class="v" style="color:${n.i>n.iP51?V.rd:V.am}">${n.i.toFixed(1)}A</span></div>
+    <div class="r"><span class="l">P</span><span class="v" style="color:${V.cy}">${n.p.toFixed(0)}kW</span></div>
+    <div class="r"><span class="l">Q</span><span class="v" style="color:${V.tl}">${n.q.toFixed(0)}kVAr</span></div>
+    <div class="r"><span class="l">PF</span><span class="v">${n.pf.toFixed(3)}</span></div>
+    <div class="r"><span class="l">Hz</span><span class="v">${n.hz.toFixed(3)}</span></div>
+    <div class="r"><span class="l">THD-V</span><span class="v">${n.thdV.toFixed(1)}%</span></div>
+    <div class="r"><span class="l">THD-I</span><span class="v">${n.thdI.toFixed(1)}%</span></div>
+    <div class="r"><span class="l">Load</span><span class="v">${(n.loadPU*100).toFixed(0)}%</span></div>
+    <div class="r"><span class="l">kWh</span><span class="v" style="color:${V.gn}">${n.kwh.toFixed(1)}</span></div>
+    <div class="r"><span class="l">Prot 51</span><span class="v" style="color:${V.dm}">${n.iP51.toFixed(1)}A</span></div>
+    <div class="r"><span class="l">Prot 50</span><span class="v" style="color:${V.dm}">${n.iP50.toFixed(1)}A</span></div>
+  </div>
+  <div style="display:flex;gap:4px;margin-top:6px">
+    <button class="bt" style="background:${n.brkOn?V.rd+"20":V.gn+"20"};color:${n.brkOn?V.rd:V.gn};border:1px solid ${n.brkOn?V.rd:V.gn}30" id="brk">${n.brkOn?"OPEN CB":"CLOSE CB"}</button>
+    <select id="flt"><option value="-1">Inject Fault...</option><option value="0">L-G Phase A</option><option value="1">L-L A-B</option><option value="2">3-Phase</option><option value="3">Earth</option></select>
+  </div></div></div>
+  <div class="C"><div class="Ch">NODE SELECT</div><div class="Cb">
+    <select id="nsel">${nodes.map(nd=>`<option value="${nd.id}" ${nd.id===n.id?"selected":""}>${nd.name} — ${nd.type}</option>`).join("")}</select>
+  </div></div>`;
+  document.getElementById("brk").onclick=()=>{n.brkOn=!n.brkOn;n.opCnt++;n.gooseSt++;if(!n.brkOn)n.fault=null;addEv(`CB ${n.brkOn?"CLOSE":"OPEN"} ${n.name}`,n.brkOn?V.gn:V.rd);};
+  document.getElementById("flt").onchange=e=>{const fi=+e.target.value;if(fi<0||!n.brkOn)return;
+    n.fault=[{v:.6,m:3.5},{v:.5,m:4},{v:.15,m:8},{v:.85,m:1.5}][fi];addEv(`⚡ Fault → ${n.name}`,V.rd);e.target.value="-1";};
+  document.getElementById("nsel").onchange=e=>{selNode=+e.target.value;ren();};
+}
+
+function dSig(id,data,sidx,color){
+  const c=document.getElementById(id);if(!c)return;const dp=window.devicePixelRatio||1;const W2=c.clientWidth,H2=50;
+  c.width=W2*dp;c.height=H2*dp;const cx=c.getContext("2d");cx.scale(dp,dp);
+  cx.fillStyle=V.bg;cx.fillRect(0,0,W2,H2);cx.strokeStyle=V.mt;cx.lineWidth=.5;cx.beginPath();cx.moveTo(0,H2/2);cx.lineTo(W2,H2/2);cx.stroke();
+  cx.strokeStyle=color;cx.lineWidth=1.2;cx.beginPath();const mx=Math.max(...Array.from(data).map(Math.abs),.01);
+  for(let i=0;i<data.length;i++){const di=(sidx-data.length+i+data.length*100)%data.length;const y2=H2/2-data[di]/mx*H2*.38;
+    i===0?cx.moveTo(i*W2/data.length,y2):cx.lineTo(i*W2/data.length,y2);}cx.stroke();}
+
+function rPipe(el){
+  const n=selNode!==null?nodes.find(x=>x.id===selNode):nodes[0];
+  if(!n){el.innerHTML=`<div style="text-align:center;padding:16px;color:${V.mt}">Add nodes first</div>`;return;}
+  el.innerHTML=`<div class="C"><div class="Ch"><span>DP PIPELINE — ${n.name}</span><span style="font-size:6px;color:${V.dm}">Atalay & Angin</span></div><div class="Cb">
+    <div style="display:flex;gap:3px;margin-bottom:6px;align-items:center"><span style="font-size:7px;color:${V.dm}">ε=</span>
+    ${[0.1,.5,1,2,5].map(e=>`<button class="bt" data-e="${e}" style="background:${eps===e?V.cy:'transparent'};color:${eps===e?V.bg:V.dm};border:1px solid ${eps===e?V.cy:V.bdr};padding:2px 7px;font-size:8px">${e}</button>`).join("")}</div>
+    <div class="lbl" style="color:${V.cy}">① RAW x<sub>i,j</sub></div><canvas class="sig" id="s1"></canvas>
+    <div class="lbl" style="color:${V.am}">② NOISY x'=x+n (ε=${eps})</div><canvas class="sig" id="s2"></canvas>
+    <div class="lbl" style="color:${V.gn}">③ RECOVERED x̂=x'−n</div><canvas class="sig" id="s3"></canvas>
+    <div style="font-size:7px;color:${V.dm};margin-top:4px">S<sub>A,V</sub>: 0x${Object.values(n.secrets)[0]?hexS(Object.values(n.secrets)[0]):"—"} · PRF: HMAC-SHA256 · Enc: AES-256-GCM</div>
+  </div></div>`;
+  el.querySelectorAll("[data-e]").forEach(b=>{b.onclick=()=>{eps=parseFloat(b.dataset.e);nodes.forEach(nd=>{nd.epsilon=eps;});updStats();ren();};});
+  dSig("s1",n.sigR,n.sigIdx,n.color);dSig("s2",n.sigN,n.sigIdx,V.am);dSig("s3",n.sigC,n.sigIdx,V.gn);
+}
+
+function rBroker(el){
+  el.innerHTML=`<div class="C"><div class="Ch"><span>VENDORS</span></div><div class="Cb">
+  ${vendors.map(v=>`<div class="nc"><div style="display:flex;justify-content:space-between"><span style="color:${V.gn};font-weight:700">${v.id}</span>
+    <span class="bg" style="background:${V.gn}15;color:${V.gn};border:1px solid ${V.gn}30">AUTHORIZED</span></div>
+    <div style="font-size:10px;color:${V.br}">${v.name}</div>
+    <div style="font-size:8px;color:${V.dm}">Purpose: ${v.purpose} · PK: 0x${v.k.fp.slice(0,8)}</div>
+    <div style="font-size:8px;color:${V.pu}">Access: ${nodes.map(n=>n.name).join(", ")||"none"}</div></div>`).join("")}
+  </div></div>
+  <div class="C"><div class="Ch">SUBSCRIBERS (METERS)</div><div class="Cb">
+  ${nodes.map(n=>`<div class="nc" style="border-left:2px solid ${n.color}">
+    <div style="font-size:10px"><span style="color:${n.color};font-weight:700">${n.name}</span><span style="color:${V.dm}"> · ${n.type}</span></div>
+    <div style="font-size:8px;color:${V.dm}">PK: 0x${n.keys.fp.slice(0,8)} · ε=${n.epsilon} · ${Object.keys(n.secrets).length} peer secrets</div>
+  </div>`).join("")||`<div style="font-size:9px;color:${V.mt};text-align:center;padding:8px">No meters</div>`}
+  </div></div>
+  <div class="C"><div class="Ch">EVENT LOG</div><div class="Cb" style="max-height:120px;overflow-y:auto">
+  ${events.map((e,i)=>`<div style="font-size:8px;color:${i===0?V.br:V.dm};padding:1px 0;border-left:2px solid ${i===0?e.c:'transparent'};padding-left:5px;opacity:${1-i*.03}">${e.t}</div>`).join("")}
+  </div></div>`;
+}
+
+function rNilm(el){
+  const h=simH;const apps=APPS.map(a=>({...a,pw:a.w*a.d(h)*(.9+Math.random()*.2)}));const agg=apps.reduce((s,a)=>s+a.pw,0);
+  el.innerHTML=`<div class="C"><div class="Ch"><span>NILM DISAGGREGATION</span><span style="font-size:7px;color:${V.dm}">${Math.floor(h)}:${String(Math.floor((h%1)*60)).padStart(2,"0")}</span></div><div class="Cb">
+    <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:${V.cy};font-weight:700">Aggregate</span><span style="color:${V.br};font-weight:700;font-size:13px">${agg.toFixed(0)}W</span></div>
+    <div style="display:flex;height:16px;border-radius:3px;overflow:hidden;background:${V.bg};margin-bottom:6px">
+    ${apps.filter(a=>a.pw>10).map(a=>`<div style="width:${(a.pw/agg)*100}%;background:${a.c}50;display:flex;align-items:center;justify-content:center;font-size:5px;color:${V.br};border-right:1px solid ${V.bg}">${(a.pw/agg)>.1?a.n:""}</div>`).join("")}</div>
+    ${apps.map(a=>`<div style="background:${V.bg3};border-radius:4px;padding:4px 6px;margin-bottom:3px;border-left:3px solid ${a.c}">
+      <div style="display:flex;justify-content:space-between"><span style="color:${a.c};font-weight:600;font-size:9px">${a.n}</span><span style="color:${V.br};font-weight:700">${a.pw.toFixed(0)}W</span></div>
+      <div style="background:${V.bg};border-radius:2px;height:3px;margin-top:2px;overflow:hidden"><div style="width:${Math.min(100,a.pw/a.w*100)}%;height:100%;background:${a.c}80;border-radius:2px"></div></div></div>`).join("")}
+  </div></div>
+  <div class="C"><div class="Ch">METRICS (Table 2)</div><div class="Cb g2">
+    <div class="r"><span class="l">ε</span><span class="v" style="color:${V.pu}">${eps}</span></div>
+    <div class="r"><span class="l">Encrypt</span><span class="v" style="color:${V.gn}">AES-256-GCM</span></div>
+    <div class="r"><span class="l">MAE</span><span class="v" style="color:${V.tl}">0.0051</span></div>
+    <div class="r"><span class="l">SAE</span><span class="v" style="color:${V.tl}">0.0173</span></div>
+    <div class="r"><span class="l">MIA AUC</span><span class="v" style="color:${V.gn}">0.514</span></div>
+    <div class="r"><span class="l">Task AUC</span><span class="v" style="color:${V.cy}">0.97</span></div>
+  </div></div>`;
+}
+
+// Periodic refresh for live data tabs
+setInterval(()=>{if(tab==="scada"||tab==="pipe"||tab==="nilm")ren();updStats();},3000);
+// Signal canvas refresh
+setInterval(()=>{if(tab==="pipe"){const n=selNode!==null?nodes.find(x=>x.id===selNode):nodes[0];
+  if(n){dSig("s1",n.sigR,n.sigIdx,n.color);dSig("s2",n.sigN,n.sigIdx,V.am);dSig("s3",n.sigC,n.sigIdx,V.gn);}}},200);
+
+ren();
+})();
+</script>
+</body>
+</html>
